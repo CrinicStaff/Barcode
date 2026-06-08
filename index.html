@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>診察券バーコード表示</title>
+    <!-- バーコード生成ライブラリ JsBarcode -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <style>
+        /* 元のサイトのスタイルを再現 */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #ffffff; /* 完全な白 */
+            color: #000000; /* 完全な黒 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        input[type="text"] {
+            width: 90%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1.2rem;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"]:focus {
+            border-color: #666;
+            outline: none;
+        }
+
+        #barcode-container {
+            margin-top: 20px;
+            min-height: 150px;
+        }
+
+        svg#barcode {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .info-msg {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 15px;
+            line-height: 1.4;
+        }
+
+        /* パラメータ生成機能のスタイル（シンプルに） */
+        .url-box {
+            display: none; /* 初期状態は非表示 */
+            margin-top: 25px;
+            padding: 15px;
+            border: 1px solid #000; /* シンプルな黒枠 */
+            background-color: #fff;
+            text-align: left;
+        }
+
+        .url-box p {
+            margin: 0 0 10px 0;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        .copy-btn {
+            background-color: #000; /* 黒ボタン */
+            color: #fff; /* 白文字 */
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            width: 100%;
+            text-align: center;
+        }
+
+        .copy-btn:hover {
+            opacity: 0.8;
+        }
+
+        .help-text {
+            font-size: 0.75rem;
+            color: #444;
+            margin-top: 8px;
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="input-group">
+        <input type="text" id="text" placeholder="診察券番号を入力" maxlength="20">
+    </div>
+
+    <div id="barcode-container">
+        <svg id="barcode"></svg>
+    </div>
+
+    <!-- 従来の説明メッセージ -->
+    <div class="info-msg" id="default-msg">
+        番号を入力するとバーコードが表示されます。
+    </div>
+
+    <!-- 【追加機能】専用URL表示エリア（モノトーンデザイン） -->
+    <div id="url-area" class="url-box">
+        <p>【iPhoneをご利用の方へ】</p>
+        <button class="copy-btn" id="copy-btn">専用URLをコピーする</button>
+        <p class="help-text">
+            このボタンを押してURLをコピーし、ブラウザ（Safari等）でそのURLを開き直してから「ホーム画面に追加」してください。
+            そうすると、次回から番号を入力せずにバーコードが表示されます。
+        </p>
+    </div>
+</div>
+
+<script>
+    const inputField = document.getElementById('text');
+    const urlArea = document.getElementById('url-area');
+    const defaultMsg = document.getElementById('default-msg');
+    const copyBtn = document.getElementById('copy-btn');
+    const STORAGE_KEY = 'storedText'; // 元のサイトと同じキー名
+
+    // 1. ページ読み込み時の処理（パラメータ読み込みを追加）
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const idParam = urlParams.get('id');
+
+        if (idParam) {
+            // URLにIDがある場合（最強：消えない）
+            inputField.value = idParam;
+            generate(idParam);
+            // URLから読み込んだ場合は説明メッセージを少し変える
+            defaultMsg.innerText = "URLから番号を読み込みました。";
+        } else {
+            // URLにIDがない場合、これまでの保存データを確認（元の仕様）
+            const savedId = localStorage.getItem(STORAGE_KEY);
+            if (savedId) {
+                inputField.value = savedId;
+                generate(savedId);
+            }
+        }
+    };
+
+    // 2. 入力時のリアルタイム生成処理（元の仕様に準拠）
+    inputField.addEventListener('input', function() {
+        const val = inputField.value;
+        if (val) {
+            localStorage.setItem(STORAGE_KEY, val); // 自動保存
+            generate(val);
+        } else {
+            document.getElementById('barcode').innerHTML = '';
+            urlArea.style.display = 'none'; // 入力がない時はエリアを隠す
+            defaultMsg.style.display = 'block';
+            defaultMsg.innerText = "番号を入力するとバーコードが表示されます。";
+        }
+    });
+
+    // 3. バーコード生成関数（パラメータ表示機能を追加）
+    function generate(val) {
+        // 元のサイトと同じCODE128規格で描画
+        JsBarcode("#barcode", val, {
+            format: "CODE128",
+            lineColor: "#000",
+            width: 2,
+            height: 100,
+            displayValue: true,
+            fontSize: 18,
+            background: "transparent"
+        });
+
+        // 従来の説明メッセージを隠し、URL生成エリアを表示
+        defaultMsg.style.display = 'none';
+        urlArea.style.display = 'block';
+
+        // 専用URLを作成
+        const baseUrl = window.location.origin + window.location.pathname;
+        const personalUrl = baseUrl + '?id=' + encodeURIComponent(val);
+
+        // コピーボタンの設定
+        copyBtn.onclick = function() {
+            navigator.clipboard.writeText(personalUrl).then(() => {
+                const originalText = copyBtn.innerText;
+                copyBtn.innerText = "コピーしました！";
+                setTimeout(() => copyBtn.innerText = originalText, 2000);
+            });
+        };
+    }
+</script>
+
+</body>
+</html>
